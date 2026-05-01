@@ -3,11 +3,15 @@ import { Send, User, Search, Store, ArrowLeft } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 
 export default function LiveChat() {
-  const { sessions, activeSessionId, setActiveSession, sendMessage, markAsReadAdmin } = useChatStore();
+  const { sessions, activeSessionId, setActiveSession, sendMessage, markAsReadAdmin, initializeSupabaseChat } = useChatStore();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
+
+  useEffect(() => {
+    initializeSupabaseChat();
+  }, [initializeSupabaseChat]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -16,11 +20,11 @@ export default function LiveChat() {
     }
   }, [activeSessionId, activeSession?.messages.length, markAsReadAdmin]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !activeSessionId) return;
     
-    sendMessage(activeSessionId, inputText, 'ADMIN-1', 'Support Agent', true);
+    await sendMessage(activeSessionId, inputText, 'ADMIN-1', 'Support Agent', true);
     setInputText('');
   };
 

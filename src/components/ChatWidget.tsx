@@ -9,9 +9,13 @@ export default function ChatWidget() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { sessions, createSession, sendMessage, markAsReadCustomer } = useChatStore();
+  const { sessions, createSession, sendMessage, markAsReadCustomer, initializeSupabaseChat } = useChatStore();
   
   const currentSession = sessions.find(s => s.id === sessionId);
+
+  useEffect(() => {
+    initializeSupabaseChat();
+  }, [initializeSupabaseChat]);
 
   useEffect(() => {
     if (isOpen && currentSession) {
@@ -20,20 +24,20 @@ export default function ChatWidget() {
     }
   }, [isOpen, currentSession?.messages.length, currentSession?.id, markAsReadCustomer]);
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
     if (!sessionId) {
-      const newSessionId = createSession('GUEST-' + Date.now(), 'Guest Customer');
+      const newSessionId = await createSession('GUEST-' + Date.now(), 'Guest Customer');
       setSessionId(newSessionId);
     }
     setIsOpen(true);
     setIsMinimized(false);
   };
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !sessionId) return;
     
-    sendMessage(sessionId, inputText, 'GUEST', 'Guest Customer', false);
+    await sendMessage(sessionId, inputText, 'GUEST', 'Guest Customer', false);
     setInputText('');
   };
 

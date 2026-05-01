@@ -148,6 +148,10 @@ export default function StoreLayout() {
           <User className="w-5 h-5 stroke-[2]" />
           <span className="text-[10px] mt-1 font-medium">Account</span>
         </Link>
+        <button className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-[#F37A20]">
+          <Menu className="w-5 h-5 stroke-[2]" />
+          <span className="text-[10px] mt-1 font-medium">Menu</span>
+        </button>
       </div>
 
       {/* Embedded Chat Widget */}

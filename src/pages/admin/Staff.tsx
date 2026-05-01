@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Shield, User, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const DEFAULT_STAFF = [
+  { id: 'STF-001', name: 'Super Admin', email: 'admin@ghorerbazar.com', role: 'Super Admin', status: 'Active' },
+  { id: 'STF-002', name: 'Raju Hasan', email: 'raju@ghorerbazar.com', role: 'Shop Manager', status: 'Active' },
+  { id: 'STF-003', name: 'Arif', email: 'arif@ghorerbazar.com', role: 'Delivery Agent', status: 'Active' },
+];
+
 export default function Staff() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [staffList, setStaffList] = useState([
-    { id: 'STF-001', name: 'Super Admin', email: 'admin@ghorerbazar.com', role: 'Super Admin', status: 'Active' },
-    { id: 'STF-002', name: 'Raju Hasan', email: 'raju@ghorerbazar.com', role: 'Shop Manager', status: 'Active' },
-    { id: 'STF-003', name: 'Arif', email: 'arif@ghorerbazar.com', role: 'Delivery Agent', status: 'Active' },
-  ]);
+  const [staffList, setStaffList] = useState(() => {
+    const saved = localStorage.getItem('staff_list');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return DEFAULT_STAFF;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('staff_list', JSON.stringify(staffList));
+  }, [staffList]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,7 +40,8 @@ export default function Staff() {
       name: formData.name,
       email: formData.email,
       role: formData.role,
-      status: 'Active'
+      status: 'Active',
+      password: formData.password
     };
     setStaffList([...staffList, newStaff]);
     toast.success(`${formData.role} added successfully`);

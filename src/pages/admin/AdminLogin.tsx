@@ -17,10 +17,32 @@ export default function AdminLogin() {
     
     // Fallback static login if Supabase fails or is not connected
     const staticLogin = () => {
-      if (inputEmail === 'shorifulyt8@gmail.com' && formData.password === '1') {
-        setRole(formData.role);
-        toast.success('Admin login successful! (Static)');
-        if (formData.role === 'chat_agent') {
+      let isLocalStaff = false;
+      let matchedRole = formData.role;
+
+      try {
+        const savedStaffList = localStorage.getItem('staff_list');
+        if (savedStaffList) {
+          const localStaff = JSON.parse(savedStaffList);
+          const match = localStaff.find(
+            (s: any) => s.email.toLowerCase() === inputEmail && s.password === formData.password
+          );
+          if (match) {
+            isLocalStaff = true;
+            matchedRole = match.role === 'Live Chat Agent' ? 'chat_agent' : 
+                          match.role === 'Delivery Agent' ? 'delivery' : 
+                          match.role === 'Shop Manager' ? 'manager' : 'superadmin';
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse local staff', e);
+      }
+
+      if ((inputEmail === 'shorifulyt8@gmail.com' && formData.password === '1') || isLocalStaff) {
+        const finalRole = isLocalStaff ? matchedRole : formData.role;
+        setRole(finalRole);
+        toast.success(`Admin login successful!`);
+        if (finalRole === 'chat_agent') {
            navigate('/admin/chat');
         } else {
            navigate('/admin');

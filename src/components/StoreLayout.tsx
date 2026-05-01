@@ -103,14 +103,14 @@ export default function StoreLayout() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-grow flex flex-col">
+      <main className="flex-grow flex flex-col pb-20 md:pb-0">
         <Outlet />
       </main>
 
       {/* Floating Widgets */}
 
-      {/* Floating Cart (Right Side) */}
-      <Link to="/cart" className="fixed right-0 top-[45%] -translate-y-1/2 bg-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] rounded-l-[10px] z-50 flex flex-col items-center overflow-hidden cursor-pointer hover:translate-x-[-4px] transition-transform">
+      {/* Floating Cart (Right Side) - Hidden on Mobile */}
+      <Link to="/cart" className="fixed right-0 top-[45%] -translate-y-1/2 bg-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] rounded-l-[10px] z-50 hidden md:flex flex-col items-center overflow-hidden cursor-pointer hover:translate-x-[-4px] transition-transform">
          <div className="bg-[#F37A20] text-white py-3 px-3 flex flex-col items-center gap-1.5 w-[72px]">
             <ShoppingBag className="w-6 h-6 stroke-[1.5]" />
             <span className="text-[12px] font-medium leading-none">{cartCount} Items</span>
@@ -119,24 +119,36 @@ export default function StoreLayout() {
             ৳{cartTotal}
          </div>
       </Link>
-
-      {/* Floating Chat (Bottom Right) */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
-         <div className="bg-white px-5 py-3 rounded-full shadow-[0_4px_15px_rgba(0,0,0,0.1)] border border-gray-50 flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition-colors relative z-10">
-            <span className="text-xl leading-none">👋</span>
-            <span className="text-[14px] font-bold text-gray-700">Chat with us</span>
-         </div>
-         <div className="w-14 h-14 bg-[#EDAF42] rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(237,175,66,0.4)] cursor-pointer hover:bg-[#d99f38] hover:scale-105 transition-all relative z-10">
-            <MessageSquare className="w-6 h-6 fill-current stroke-none" />
-         </div>
-      </div>
       
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12 py-8">
+      <footer className="bg-white border-t border-gray-200 mt-12 py-8 pb-24 md:pb-8">
         <div className="max-w-[1400px] mx-auto px-4 text-center text-sm text-gray-500">
            &copy; {new Date().getFullYear()} GHORER BAZAR Clone. All rights reserved. (Demo) | <Link to="/admin/login" className="hover:text-[#F37A20] transition-colors ml-2">Admin Portal</Link>
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 flex justify-around items-center h-16 px-2 pb-safe">
+        <Link to="/" className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-[#F37A20]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-home"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span className="text-[10px] mt-1 font-medium">Home</span>
+        </Link>
+        <Link to="/products" className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-[#F37A20]">
+           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-layout-grid"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+           <span className="text-[10px] mt-1 font-medium">Categories</span>
+        </Link>
+        <Link to="/cart" className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-[#F37A20] relative">
+          <div className="relative">
+            <ShoppingBag className="w-5 h-5 stroke-[2]" />
+            <span className="absolute -top-1.5 -right-2 bg-[#F37A20] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold">{cartCount}</span>
+          </div>
+          <span className="text-[10px] mt-1 font-medium">Cart</span>
+        </Link>
+        <Link to="/login" className="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-[#F37A20]">
+          <User className="w-5 h-5 stroke-[2]" />
+          <span className="text-[10px] mt-1 font-medium">Account</span>
+        </Link>
+      </div>
 
       {/* Embedded Chat Widget */}
       <ChatWidget />

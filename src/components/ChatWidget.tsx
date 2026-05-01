@@ -41,7 +41,7 @@ export default function ChatWidget() {
     return (
       <button 
         onClick={handleOpen}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-[#F37A20] text-white rounded-full shadow-xl flex items-center justify-center hover:bg-[#d96a18] transition-transform hover:scale-105 z-50"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14 bg-[#F37A20] text-white rounded-full shadow-xl flex items-center justify-center hover:bg-[#d96a18] transition-transform hover:scale-105 z-50"
       >
         <MessageSquare className="w-6 h-6" />
         {/* Mock unread badge if there were a logged in user with active session, 
@@ -51,8 +51,8 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className={`fixed right-6 z-50 flex flex-col bg-white shadow-2xl rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 ${
-      isMinimized ? 'bottom-6 w-72 h-16' : 'bottom-6 w-[350px] h-[500px]'
+    <div className={`fixed right-4 md:right-6 z-50 flex flex-col bg-white shadow-2xl rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 ${
+      isMinimized ? 'bottom-20 md:bottom-6 w-72 h-16' : 'bottom-20 md:bottom-6 w-[320px] md:w-[350px] h-[450px] md:h-[500px]'
     }`}>
       {/* Header */}
       <div className="bg-[#F37A20] p-4 flex items-center justify-between text-white shrink-0 cursor-pointer" onClick={() => setIsMinimized(!isMinimized)}>

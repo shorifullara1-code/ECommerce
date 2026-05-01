@@ -11,7 +11,7 @@ export default function AdminLogin() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.email === 'Shorifulyt8@gmail.com' && formData.password === '1') {
+    if (formData.email.toLowerCase() === 'shorifulyt8@gmail.com' && formData.password === '1') {
       setRole(formData.role);
       toast.success('Admin login successful!');
       if (formData.role === 'chat_agent') {

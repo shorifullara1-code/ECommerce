@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Send, User, Search, Store } from 'lucide-react';
+import { Send, User, Search, Store, ArrowLeft } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
 
 export default function LiveChat() {
@@ -25,9 +25,9 @@ export default function LiveChat() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="h-[calc(100vh-8rem)] flex flex-col md:flex-row bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {/* Sidebar - Chat List */}
-      <div className="w-80 border-r border-gray-200 flex flex-col bg-gray-50 shrink-0">
+      <div className={`w-full md:w-80 border-r border-gray-200 flex flex-col bg-gray-50 shrink-0 ${activeSession ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-200 bg-white">
           <h2 className="font-bold text-gray-900 mb-3">Live Messages</h2>
           <div className="relative">
@@ -71,11 +71,17 @@ export default function LiveChat() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white min-w-0">
+      <div className={`flex-1 flex flex-col bg-white min-w-0 ${!activeSession ? 'hidden md:flex' : 'flex'}`}>
         {activeSession ? (
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-100 flex items-center gap-3 shrink-0">
+              <button 
+                onClick={() => setActiveSession('')}
+                className="md:hidden p-2 -ml-2 text-gray-500 hover:text-gray-900"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
               <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5" />
               </div>

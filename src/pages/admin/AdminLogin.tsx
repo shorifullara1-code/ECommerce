@@ -1,28 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, Mail } from 'lucide-react';
+import { Shield, Lock, Mail, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAdminStore } from '../../store/adminStore';
+import { supabase } from '../../lib/supabase';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '', role: 'superadmin' });
+  const [loading, setLoading] = useState(false);
   const setRole = useAdminStore((state) => state.setRole);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const inputEmail = formData.email.trim().toLowerCase();
     
-    if (inputEmail === 'shorifulyt8@gmail.com' && formData.password === '1') {
-      setRole(formData.role);
-      toast.success('Admin login successful!');
-      if (formData.role === 'chat_agent') {
-         navigate('/admin/chat');
+    // Fallback static login if Supabase fails or is not connected
+    const staticLogin = () => {
+      if (inputEmail === 'shorifulyt8@gmail.com' && formData.password === '1') {
+        setRole(formData.role);
+        toast.success('Admin login successful! (Static)');
+        if (formData.role === 'chat_agent') {
+           navigate('/admin/chat');
+        } else {
+           navigate('/admin');
+        }
       } else {
-         navigate('/admin');
+        toast.error('Invalid email or password');
       }
-    } else {
-      toast.error('Invalid email or password');
+    };
+
+    setLoading(true);
+    try {
+      // Trying Supabase authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: inputEmail,
+        password: formData.password
+      });
+
+      if (error) {
+        // Fallback to static login if Supabase auth fails (might not be set up)
+        console.warn('Supabase auth failed, falling back to static auth...', error.message);
+        staticLogin();
+        return;
+      }
+
+      if (data.user) {
+        // Fetch role from profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+          
+        const userRole = profile?.role || formData.role;
+        setRole(userRole);
+        toast.success('Admin login successful!');
+        
+        if (userRole === 'chat_agent') {
+           navigate('/admin/chat');
+        } else {
+           navigate('/admin');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      staticLogin();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,6 +99,7 @@ export default function AdminLogin() {
                 <option value="chat_agent">Live Chat Agent</option>
               </select>
             </div>
+            <p className="text-xs text-gray-500 mt-1">If using Supabase, role is auto-assigned.</p>
           </div>
 
           <div className="space-y-1.5">
@@ -88,9 +134,10 @@ export default function AdminLogin() {
 
           <button
             type="submit"
-            className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-black transition-colors flex items-center justify-center gap-2"
+            disabled={loading}
+            className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-black transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
           >
-            Access Dashboard
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Access Dashboard'}
           </button>
         </form>
       </div>

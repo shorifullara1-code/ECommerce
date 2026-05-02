@@ -1,20 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Send, User, Search, Store, ArrowLeft } from 'lucide-react';
+import { Send, User, Search, Store, ArrowLeft, Lock, CheckCircle } from 'lucide-react';
 import { useChatStore } from '../../store/chatStore';
+import { supabase } from '../../lib/supabase';
 
 export default function LiveChat() {
   const { sessions, activeSessionId, setActiveSession, sendMessage, markAsReadAdmin, initializeSupabaseChat } = useChatStore();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [adminUser, setAdminUser] = useState<any>(null);
 
-  const activeSession = sessions.find(s => s.id === activeSessionId);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setAdminUser(data.user);
+    });
+  }, []);
+
+  const visibleSessions = sessions.filter(session => {
+    // If a session is claimed by another agent, don't show it
+    if (session.agentId && session.agentId !== adminUser?.id) {
+       return false;
+    }
+    return true;
+  });
+
+  const activeSession = visibleSessions.find(s => s.id === activeSessionId);
+
+  // If the active session becomes unavailable (e.g. claimed by another), clear it
+  useEffect(() => {
+     if (activeSessionId && !activeSession) {
+        setActiveSession('');
+     }
+  }, [visibleSessions.length, activeSession, activeSessionId, setActiveSession]);
 
   useEffect(() => {
     initializeSupabaseChat();
   }, [initializeSupabaseChat]);
 
   useEffect(() => {
-    if (activeSessionId) {
+    if (activeSessionId && activeSession) {
       markAsReadAdmin(activeSessionId);
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
@@ -22,9 +45,16 @@ export default function LiveChat() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeSessionId) return;
+    if (!inputText.trim() || !activeSessionId || !adminUser) return;
     
-    await sendMessage(activeSessionId, inputText, 'ADMIN-1', 'Support Agent', true);
+    // We pass adminUser's id and name to "claim" the chat if not already claimed
+    await sendMessage(
+       activeSessionId, 
+       inputText, 
+       adminUser.id, 
+       adminUser.user_metadata?.first_name || adminUser.email || 'Support Agent', 
+       true
+    );
     setInputText('');
   };
 
@@ -45,7 +75,10 @@ export default function LiveChat() {
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          {sessions.map(session => (
+          {visibleSessions.length === 0 && (
+            <p className="text-center text-gray-500 text-sm mt-10">No chats available</p>
+          )}
+          {visibleSessions.map(session => (
             <button
               key={session.id}
               onClick={() => setActiveSession(session.id)}
@@ -54,7 +87,15 @@ export default function LiveChat() {
               }`}
             >
               <div className="flex items-start justify-between mb-1">
-                <span className="font-medium text-gray-900 text-sm truncate pr-2">{session.customerName}</span>
+                <span className="font-medium text-gray-900 text-sm truncate pr-2 flex items-center gap-1">
+                  {session.customerName}
+                  {session.agentId === adminUser?.id && (
+                     <Lock className="w-3 h-3 text-green-600" title="Claimed by you" />
+                  )}
+                  {session.status === 'Closed' && (
+                     <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded ml-1">Closed</span>
+                  )}
+                </span>
                 <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
                   {new Date(session.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -90,10 +131,21 @@ export default function LiveChat() {
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">{activeSession.customerName}</h3>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span> Online now
-                </p>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  {activeSession.customerName}
+                  {activeSession.status === 'Closed' && (
+                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded uppercase tracking-wider font-bold">Closed</span>
+                  )}
+                </h3>
+                {activeSession.status === 'Active' ? (
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span> Online now
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400 flex items-center gap-1">
+                    Ended by user
+                  </p>
+                )}
               </div>
             </div>
 
@@ -102,22 +154,30 @@ export default function LiveChat() {
               {activeSession.messages.map(msg => (
                 <div 
                   key={msg.id} 
-                  className={`flex flex-col max-w-[70%] ${!msg.isAdmin ? 'self-start' : 'self-end'}`}
+                  className={`flex flex-col max-w-[70%] ${!msg.isAdmin ? 'self-start mt-2' : 'self-end mt-1'}`}
                 >
-                  <div className="text-xs text-gray-400 mb-1 px-1 flex items-center gap-2">
-                    {msg.senderName}
-                    <span>•</span>
+                  <div className="text-[10px] text-gray-500 mb-0.5 px-1 flex items-center gap-2">
+                    {msg.senderName} 
+                    <span className="text-gray-300">•</span>
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div className={`p-3 rounded-2xl text-sm ${
                     !msg.isAdmin 
-                      ? 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm' 
-                      : 'bg-[#F37A20] text-white rounded-tr-sm shadow-sm'
+                      ? 'bg-white border border-gray-200 text-gray-800 rounded-tr-xl rounded-br-xl rounded-bl-xl shadow-sm' 
+                      : 'bg-[#F37A20] text-white rounded-tl-xl rounded-tr-xl rounded-bl-xl shadow-sm'
                   }`}>
                     {msg.text}
                   </div>
                 </div>
               ))}
+              
+              {activeSession.status === 'Closed' && (
+                <div className="my-4 flex items-center justify-center gap-2 text-red-500 text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  Chat Session Concluded
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -128,12 +188,13 @@ export default function LiveChat() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type a message to customer..."
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F37A20] focus:ring-1 focus:ring-[#F37A20]"
+                  placeholder={activeSession.status === 'Closed' ? "Chat is closed" : "Type a message to customer..."}
+                  disabled={activeSession.status === 'Closed'}
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F37A20] focus:ring-1 focus:ring-[#F37A20] disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button 
                   type="submit"
-                  disabled={!inputText.trim()}
+                  disabled={!inputText.trim() || activeSession.status === 'Closed'}
                   className="w-12 h-12 bg-[#F37A20] text-white rounded-xl flex items-center justify-center disabled:opacity-50 hover:bg-[#d96a18] transition-colors shrink-0"
                 >
                   <Send className="w-5 h-5" />

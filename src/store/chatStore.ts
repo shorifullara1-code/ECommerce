@@ -19,6 +19,8 @@ export interface ChatSession {
   unreadAdmin: number;
   unreadCustomer: number;
   lastMessageAt: string;
+  status: string;
+  agentId: string | null;
 }
 
 interface ChatState {
@@ -75,6 +77,8 @@ export const useChatStore = create<ChatState>()(
         unreadAdmin: s.unread_admin || 0,
         unreadCustomer: s.unread_customer || 0,
         lastMessageAt: s.last_message_at,
+        status: s.status || 'Active',
+        agentId: s.agent_id || null,
         messages: (initialMessages || [])
           .filter(m => m.session_id === s.id)
           .map(m => ({
@@ -104,6 +108,8 @@ export const useChatStore = create<ChatState>()(
                       unreadAdmin: s.unread_admin || 0,
                       unreadCustomer: s.unread_customer || 0,
                       lastMessageAt: s.last_message_at,
+                      status: s.status || 'Active',
+                      agentId: s.agent_id || null,
                       messages: []
                     }, ...state.sessions]
                  };
@@ -116,7 +122,9 @@ export const useChatStore = create<ChatState>()(
                     ...sess, 
                     unreadAdmin: s.unread_admin, 
                     unreadCustomer: s.unread_customer,
-                    lastMessageAt: s.last_message_at
+                    lastMessageAt: s.last_message_at,
+                    status: s.status || 'Active',
+                    agentId: s.agent_id || null
                   } : sess
                 ).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
               }));
@@ -210,11 +218,17 @@ export const useChatStore = create<ChatState>()(
       const unreadAdmin = session ? (isAdmin ? session.unreadAdmin : session.unreadAdmin + 1) : (isAdmin ? 0 : 1);
       const unreadCustomer = session ? (!isAdmin ? session.unreadCustomer : session.unreadCustomer + 1) : (!isAdmin ? 0 : 1);
       
-      await supabase.from('chat_sessions').update({
+      const sessionUpdates: any = {
          last_message_at: new Date().toISOString(),
          unread_admin: unreadAdmin,
          unread_customer: unreadCustomer,
-      }).eq('id', sessionId);
+      };
+
+      if (isAdmin && session && !session.agentId) {
+         sessionUpdates.agent_id = senderId;
+      }
+
+      await supabase.from('chat_sessions').update(sessionUpdates).eq('id', sessionId);
     } catch(e: any) {
        console.warn("Supabase error during send message", e);
        alert("Error sending message: " + (e.message || String(e)));
@@ -249,6 +263,8 @@ export const useChatStore = create<ChatState>()(
             unreadAdmin: 0,
             unreadCustomer: 1,
             lastMessageAt: new Date().toISOString(),
+            status: 'Active',
+            agentId: null,
             messages: []
          }, ...state.sessions]
       }));
@@ -276,6 +292,8 @@ export const useChatStore = create<ChatState>()(
              unreadAdmin: 0,
              unreadCustomer: 1,
              lastMessageAt: new Date().toISOString(),
+             status: 'Active',
+             agentId: null,
              messages: [{
                 id: `MSG-INIT-${Date.now()}`,
                 senderId: 'ADMIN-1',

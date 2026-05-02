@@ -236,7 +236,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch(e) {
        console.warn("Error creating session in Supabase. Falling back to local state.", e);
        // Local Fallback
-       const fallbackId = `SESSION-${Date.now()}`;
+       const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `SESSION-${Date.now()}`;
        set(state => ({
           sessions: [{
              id: fallbackId,

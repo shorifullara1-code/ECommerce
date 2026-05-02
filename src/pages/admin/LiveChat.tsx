@@ -15,9 +15,11 @@ export default function LiveChat() {
     });
   }, []);
 
+  const currentAgentId = adminUser?.id || 'ADMIN-1';
+
   const visibleSessions = sessions.filter(session => {
     // If a session is claimed by another agent, don't show it
-    if (session.agentId && session.agentId !== adminUser?.id) {
+    if (session.agentId && session.agentId !== currentAgentId) {
        return false;
     }
     return true;
@@ -92,7 +94,7 @@ export default function LiveChat() {
               <div className="flex items-start justify-between mb-1">
                 <span className="font-medium text-gray-900 text-sm truncate pr-2 flex items-center gap-1">
                   {session.customerName}
-                  {session.agentId === adminUser?.id && (
+                  {session.agentId === currentAgentId && (
                      <Lock className="w-3 h-3 text-green-600" title="Claimed by you" />
                   )}
                   {session.status === 'Closed' && (

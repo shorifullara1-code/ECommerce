@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, Minimize2, Maximize2 } from 'lucide-react';
+import { MessageSquare, X, Send, Minimize2, Maximize2, MoreVertical, PowerOff } from 'lucide-react';
 import { useChatStore } from '../store/chatStore';
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [inputText, setInputText] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { sessions, createSession, sendMessage, markAsReadCustomer, initializeSupabaseChat } = useChatStore();
+  const { sessions, createSession, sendMessage, endSession, markAsReadCustomer, initializeSupabaseChat } = useChatStore();
   
   const currentSession = sessions.find(s => s.id === sessionId);
 
@@ -33,6 +34,15 @@ export default function ChatWidget() {
     setIsMinimized(false);
   };
 
+  const handleEndSession = async () => {
+    if (sessionId) {
+      await endSession(sessionId);
+      setSessionId(null);
+      setIsOpen(false);
+      setShowMenu(false);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !sessionId) return;
@@ -48,8 +58,6 @@ export default function ChatWidget() {
         className="fixed bottom-[84px] right-4 md:bottom-6 md:right-6 w-14 h-14 bg-[#F37A20] text-white rounded-full shadow-xl flex items-center justify-center hover:bg-[#d96a18] transition-transform hover:scale-105 z-50"
       >
         <MessageSquare className="w-6 h-6" />
-        {/* Mock unread badge if there were a logged in user with active session, 
-            but for guest we just show when they open */}
       </button>
     );
   }
@@ -69,7 +77,26 @@ export default function ChatWidget() {
             {!isMinimized && <p className="text-xs text-white/80">We typically reply in minutes</p>}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          
+          {showMenu && !isMinimized && (
+            <div className="absolute top-10 right-8 bg-white text-gray-800 rounded-lg shadow-lg border border-gray-100 py-1 min-w-[140px] z-50">
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleEndSession(); }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <PowerOff className="w-4 h-4" />
+                End Chat
+              </button>
+            </div>
+          )}
+
           <button 
             onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}
             className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
@@ -88,12 +115,15 @@ export default function ChatWidget() {
       {!isMinimized && (
         <>
           {/* Chat Area */}
-          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3">
+          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 flex flex-col gap-3" onClick={() => setShowMenu(false)}>
             {currentSession?.messages.map((msg) => (
               <div 
                 key={msg.id} 
-                className={`flex flex-col max-w-[80%] ${msg.isAdmin ? 'self-start' : 'self-end'}`}
+                className={`flex flex-col max-w-[80%] ${msg.isAdmin ? 'self-start mt-2' : 'self-end mt-1'}`}
               >
+                {msg.isAdmin && (
+                  <span className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{msg.senderName}</span>
+                )}
                 <div className={`p-3 rounded-2xl text-sm ${
                   msg.isAdmin 
                     ? 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm' 

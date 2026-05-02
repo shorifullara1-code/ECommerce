@@ -29,6 +29,7 @@ interface ChatState {
   sendMessage: (sessionId: string, text: string, senderId: string, senderName: string, isAdmin: boolean) => Promise<void>;
   createSession: (customerId: string, customerName: string) => Promise<string>;
   setActiveSession: (sessionId: string) => void;
+  endSession: (sessionId: string) => Promise<void>;
   markAsReadAdmin: (sessionId: string) => Promise<void>;
   markAsReadCustomer: (sessionId: string) => Promise<void>;
 }
@@ -290,6 +291,17 @@ export const useChatStore = create<ChatState>()(
   },
 
   setActiveSession: (sessionId) => set({ activeSessionId: sessionId }),
+
+  endSession: async (sessionId) => {
+    try {
+      if (!sessionId.startsWith('SESSION-')) {
+        await supabase.from('chat_sessions').update({ status: 'Closed' }).eq('id', sessionId);
+      }
+    } catch(e) {
+      console.warn("Could not close session in database", e);
+    }
+    // No need to remove from local state immediately unless we want to hide it
+  },
 
   markAsReadAdmin: async (sessionId) => {
     set(state => ({

@@ -17,22 +17,10 @@ export default function LiveChat() {
 
   const currentAgentId = adminUser?.id || 'ADMIN-1';
 
-  const visibleSessions = sessions.filter(session => {
-    // If a session is claimed by another agent, don't show it
-    if (session.agentId && session.agentId !== currentAgentId) {
-       return false;
-    }
-    return true;
-  });
+  // We will no longer hide sessions, instead we will disable the chat box if claimed by someone else.
+  const visibleSessions = sessions;
 
   const activeSession = visibleSessions.find(s => s.id === activeSessionId);
-
-  // If the active session becomes unavailable (e.g. claimed by another), clear it
-  useEffect(() => {
-     if (activeSessionId && !activeSession) {
-        setActiveSession('');
-     }
-  }, [visibleSessions.length, activeSession, activeSessionId, setActiveSession]);
 
   useEffect(() => {
     initializeSupabaseChat();
@@ -62,6 +50,9 @@ export default function LiveChat() {
     );
     setInputText('');
   };
+
+  const isClaimedByOther = activeSession?.agentId && activeSession.agentId !== currentAgentId;
+  const isChatDisabled = activeSession?.status === 'Closed' || isClaimedByOther;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col md:flex-row bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -96,6 +87,9 @@ export default function LiveChat() {
                   {session.customerName}
                   {session.agentId === currentAgentId && (
                      <Lock className="w-3 h-3 text-green-600" title="Claimed by you" />
+                  )}
+                  {session.agentId && session.agentId !== currentAgentId && (
+                     <Lock className="w-3 h-3 text-gray-400" title="Claimed by another agent" />
                   )}
                   {session.status === 'Closed' && (
                      <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded ml-1">Closed</span>
@@ -193,13 +187,13 @@ export default function LiveChat() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder={activeSession.status === 'Closed' ? "Chat is closed" : "Type a message to customer..."}
-                  disabled={activeSession.status === 'Closed'}
+                  placeholder={isChatDisabled ? (isClaimedByOther ? "Claimed by another agent" : "Chat is closed") : "Type a message to customer..."}
+                  disabled={isChatDisabled}
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F37A20] focus:ring-1 focus:ring-[#F37A20] disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button 
                   type="submit"
-                  disabled={!inputText.trim() || activeSession.status === 'Closed'}
+                  disabled={!inputText.trim() || isChatDisabled}
                   className="w-12 h-12 bg-[#F37A20] text-white rounded-xl flex items-center justify-center disabled:opacity-50 hover:bg-[#d96a18] transition-colors shrink-0"
                 >
                   <Send className="w-5 h-5" />

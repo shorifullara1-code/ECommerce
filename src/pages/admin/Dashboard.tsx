@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -10,7 +10,8 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRight, HeadphonesIcon } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 const salesData = [
   { name: 'Jan', total: 1200 },
@@ -32,6 +33,46 @@ const trafficData = [
 ];
 
 export default function Dashboard() {
+  const [agentStats, setAgentStats] = useState<{name: string, count: number, id: string}[]>([]);
+
+  useEffect(() => {
+    async function fetchAgentStats() {
+      try {
+        const { data, error } = await supabase
+           .from('chat_messages')
+           .select('sender_name, sender_id, session_id')
+           .eq('is_admin', true);
+           
+        if (error) {
+           console.error("Error fetching agent stats", error);
+           return;
+        }
+        
+        // Process data to count unique session_id per sender_id
+        const agentMap = new Map<string, {name: string, sessions: Set<string>}>();
+        
+        (data || []).forEach(msg => {
+           if (!agentMap.has(msg.sender_id)) {
+               agentMap.set(msg.sender_id, { name: msg.sender_name, sessions: new Set() });
+           }
+           agentMap.get(msg.sender_id)!.sessions.add(msg.session_id);
+        });
+        
+        const stats = Array.from(agentMap.entries()).map(([id, info]) => ({
+            id,
+            name: info.name,
+            count: info.sessions.size
+        })).sort((a, b) => b.count - a.count);
+        
+        setAgentStats(stats);
+      } catch (err) {
+        console.error("Failed to fetch agent stats", err);
+      }
+    }
+    
+    fetchAgentStats();
+  }, []);
+
   const stats = [
     { name: 'Total Revenue', value: '৳ 425,000', change: '+12.5%', trend: 'up', icon: DollarSign },
     { name: 'Orders', value: '1,245', change: '+8.2%', trend: 'up', icon: ShoppingBag },
@@ -196,47 +237,89 @@ export default function Dashboard() {
         </div>
       </div>
       
-      {/* Recent Orders Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-           <div>
-              <h3 className="font-semibold text-gray-900">Recent Orders</h3>
-              <p className="text-sm text-gray-500">Latest transactions from your store</p>
-           </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-500">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Order ID</th>
-                <th className="px-6 py-3 font-semibold">Customer</th>
-                <th className="px-6 py-3 font-semibold">Date</th>
-                <th className="px-6 py-3 font-semibold">Amount</th>
-                <th className="px-6 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {[
-                { id: 'ORD-7291', name: 'Rahim Uddin', date: 'Oct 24, 2026', amount: '৳ 1,250', status: 'Completed', color: 'bg-green-100 text-green-700' },
-                { id: 'ORD-7290', name: 'Fatema Begum', date: 'Oct 24, 2026', amount: '৳ 3,420', status: 'Processing', color: 'bg-blue-100 text-blue-700' },
-                { id: 'ORD-7289', name: 'Karim Ali', date: 'Oct 23, 2026', amount: '৳ 850', status: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
-                { id: 'ORD-7288', name: 'Salma Akter', date: 'Oct 23, 2026', amount: '৳ 5,100', status: 'Completed', color: 'bg-green-100 text-green-700' },
-                { id: 'ORD-7287', name: 'Jalal Ahmed', date: 'Oct 22, 2026', amount: '৳ 1,120', status: 'Cancelled', color: 'bg-red-100 text-red-700' },
-              ].map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{order.id}</td>
-                  <td className="px-6 py-4">{order.name}</td>
-                  <td className="px-6 py-4">{order.date}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{order.amount}</td>
-                  <td className="px-6 py-4">
-                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${order.color}`}>
-                        {order.status}
-                     </span>
-                  </td>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Recent Orders Table */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+             <div>
+                <h3 className="font-semibold text-gray-900">Recent Orders</h3>
+                <p className="text-sm text-gray-500">Latest transactions from your store</p>
+             </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-500">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-700">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">Order ID</th>
+                  <th className="px-6 py-3 font-semibold">Customer</th>
+                  <th className="px-6 py-3 font-semibold">Date</th>
+                  <th className="px-6 py-3 font-semibold">Amount</th>
+                  <th className="px-6 py-3 font-semibold">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {[
+                  { id: 'ORD-7291', name: 'Rahim Uddin', date: 'Oct 24, 2026', amount: '৳ 1,250', status: 'Completed', color: 'bg-green-100 text-green-700' },
+                  { id: 'ORD-7290', name: 'Fatema Begum', date: 'Oct 24, 2026', amount: '৳ 3,420', status: 'Processing', color: 'bg-blue-100 text-blue-700' },
+                  { id: 'ORD-7289', name: 'Karim Ali', date: 'Oct 23, 2026', amount: '৳ 850', status: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
+                  { id: 'ORD-7288', name: 'Salma Akter', date: 'Oct 23, 2026', amount: '৳ 5,100', status: 'Completed', color: 'bg-green-100 text-green-700' },
+                  { id: 'ORD-7287', name: 'Jalal Ahmed', date: 'Oct 22, 2026', amount: '৳ 1,120', status: 'Cancelled', color: 'bg-red-100 text-red-700' },
+                ].map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900">{order.id}</td>
+                    <td className="px-6 py-4">{order.name}</td>
+                    <td className="px-6 py-4">{order.date}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{order.amount}</td>
+                    <td className="px-6 py-4">
+                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${order.color}`}>
+                          {order.status}
+                       </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Agent Performance Table */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+             <div>
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <HeadphonesIcon className="w-5 h-5 text-[#F37A20]" />
+                  Agent Chat Performance
+                </h3>
+                <p className="text-sm text-gray-500">Number of unique customers assisted per agent</p>
+             </div>
+          </div>
+          <div className="overflow-y-auto max-h-[350px]">
+            {agentStats.length > 0 ? (
+              <ul className="divide-y divide-gray-100">
+                {agentStats.map((agent) => (
+                   <li key={agent.id} className="flex items-center justify-between p-4 px-6 hover:bg-gray-50">
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-full bg-[#fcead8] flex items-center justify-center text-[#F37A20] font-bold">
+                         {agent.name.charAt(0).toUpperCase()}
+                       </div>
+                       <div>
+                         <p className="font-medium text-gray-900 text-sm">{agent.name}</p>
+                         <p className="text-xs text-gray-500">Support Agent</p>
+                       </div>
+                     </div>
+                     <div className="text-right">
+                       <p className="font-bold text-gray-900 text-lg">{agent.count}</p>
+                       <p className="text-xs text-gray-500">Customers Assisted</p>
+                     </div>
+                   </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-sm text-gray-500">
+                No chat data available yet.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -149,70 +149,154 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (sessionId, text, senderId, senderName, isAdmin) => {
-    // 1. Insert message
-    const { error: msgError } = await supabase
-       .from('chat_messages')
-       .insert({
-          session_id: sessionId,
-          sender_id: senderId,
-          sender_name: senderName,
-          text: text,
-          is_admin: isAdmin
-       });
+    // Optimistic Update / Local Fallback
+    const newMsg: ChatMessage = {
+      id: `MSG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      senderId,
+      senderName,
+      text,
+      timestamp: new Date().toISOString(),
+      isAdmin
+    };
 
-    if (msgError) {
-       console.error("Error sending user message:", msgError);
-       return;
+    set(state => ({
+      sessions: state.sessions.map(s => {
+        if (s.id === sessionId) {
+          return {
+            ...s,
+            messages: [...s.messages, newMsg],
+            unreadAdmin: isAdmin ? s.unreadAdmin : s.unreadAdmin + 1,
+            unreadCustomer: !isAdmin ? s.unreadCustomer : s.unreadCustomer + 1,
+            lastMessageAt: newMsg.timestamp
+          };
+        }
+        return s;
+      })
+    }));
+
+    // 1. Insert message to Supabase
+    try {
+      const { error: msgError } = await supabase
+         .from('chat_messages')
+         .insert({
+            session_id: sessionId,
+            sender_id: senderId,
+            sender_name: senderName,
+            text: text,
+            is_admin: isAdmin
+         });
+
+      if (msgError) {
+         console.warn("Supabase chat message insert failed, using local state only.", msgError);
+         return;
+      }
+
+      // 2. Fetch session to get current unread counts
+      const session = get().sessions.find(s => s.id === sessionId);
+      if (!session) return;
+
+      // 3. Update session in Supabase
+      await supabase.from('chat_sessions').update({
+         last_message_at: new Date().toISOString(),
+         unread_admin: isAdmin ? session.unreadAdmin : session.unreadAdmin + 1,
+         unread_customer: !isAdmin ? session.unreadCustomer : session.unreadCustomer + 1,
+      }).eq('id', sessionId);
+    } catch(e) {
+       console.warn("Supabase error during send message", e);
     }
-
-    // 2. Fetch session to get current unread counts
-    const session = get().sessions.find(s => s.id === sessionId);
-    if (!session) return;
-
-    // 3. Update session
-    await supabase.from('chat_sessions').update({
-       last_message_at: new Date().toISOString(),
-       unread_admin: isAdmin ? session.unreadAdmin : session.unreadAdmin + 1,
-       unread_customer: !isAdmin ? session.unreadCustomer : session.unreadCustomer + 1,
-    }).eq('id', sessionId);
   },
 
   createSession: async (customerId, customerName) => {
-    const { data: sessionData, error: sessionError } = await supabase
-       .from('chat_sessions')
-       .insert({
-          customer_id: customerId,
-          customer_name: customerName,
-          unread_admin: 0,
-          unread_customer: 1, // Will have 1 admin msg initially
-       })
-       .select()
-       .single();
-    
-    if (sessionError) {
-       console.error("Error creating session:", sessionError);
-       return "";
+    try {
+      const { data: sessionData, error: sessionError } = await supabase
+         .from('chat_sessions')
+         .insert({
+            customer_id: customerId,
+            customer_name: customerName,
+            unread_admin: 0,
+            unread_customer: 1, // Will have 1 admin msg initially
+         })
+         .select()
+         .single();
+      
+      if (sessionError) {
+         throw sessionError;
+      }
+
+      // Give it a generic admin start message
+      await supabase.from('chat_messages').insert({
+         session_id: sessionData.id,
+         sender_id: 'ADMIN-1',
+         sender_name: 'Support Agent',
+         text: 'Hello! Welcome to Ghorer Bazar. How can I assist you?',
+         is_admin: true
+      });
+
+      return sessionData.id;
+    } catch(e) {
+       console.warn("Error creating session in Supabase. Falling back to local state.", e);
+       // Local Fallback
+       const fallbackId = `SESSION-${Date.now()}`;
+       set(state => ({
+          sessions: [{
+             id: fallbackId,
+             customerId,
+             customerName,
+             unreadAdmin: 0,
+             unreadCustomer: 1,
+             lastMessageAt: new Date().toISOString(),
+             messages: [{
+                id: `MSG-INIT-${Date.now()}`,
+                senderId: 'ADMIN-1',
+                senderName: 'Support Agent',
+                text: 'Hello! Welcome to Ghorer Bazar. How can I assist you?',
+                timestamp: new Date().toISOString(),
+                isAdmin: true
+             }]
+          }, ...state.sessions]
+       }));
+       return fallbackId;
     }
-
-    // Give it a generic admin start message
-    await supabase.from('chat_messages').insert({
-       session_id: sessionData.id,
-       sender_id: 'ADMIN-1',
-       sender_name: 'Support Agent',
-       text: 'Hello! Welcome to Ghorer Bazar. How can I assist you?',
-       is_admin: true
-    });
-
-    return sessionData.id;
   },
 
   setActiveSession: (sessionId) => set({ activeSessionId: sessionId }),
 
   markAsReadAdmin: async (sessionId) => {
-    await supabase.from('chat_sessions').update({ unread_admin: 0 }).eq('id', sessionId);
+    set(state => ({
+      sessions: state.sessions.map(s => s.id === sessionId ? { ...s, unreadAdmin: 0 } : s)
+    }));
+    try {
+      await supabase.from('chat_sessions').update({ unread_admin: 0 }).eq('id', sessionId);
+    } catch(e) { /* ignore */ }
   },
 
   markAsReadCustomer: async (sessionId) => {
-    await supabase.from('chat_sessions').update({ unread_customer: 0 }).eq('id', sessionId);
+    set(state => ({
+      sessions: state.sessions.map(s => s.id === sessionId ? { ...s, unreadCustomer: 0 } : s)
+    }));
+    try {
+      await supabase.from('chat_sessions').update({ unread_customer: 0 }).eq('id', sessionId);
+    } catch(e) { /* ignore */ }
   },
 }));
+
+
+// Subscribe to cross-tab changes for local fallback users
+if (typeof window !== 'undefined') {
+  const channel = new BroadcastChannel('chat_sync_channel');
+  
+  let isReceiving = false;
+  useChatStore.subscribe((state) => {
+    if (!isReceiving) {
+      channel.postMessage({ type: 'SYNC_SESSIONS', sessions: state.sessions });
+    }
+  });
+
+  channel.onmessage = (event) => {
+    if (event.data && event.data.type === 'SYNC_SESSIONS') {
+      isReceiving = true;
+      useChatStore.setState({ sessions: event.data.sessions });
+      isReceiving = false;
+    }
+  };
+}

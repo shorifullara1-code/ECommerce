@@ -198,6 +198,7 @@ export const useChatStore = create<ChatState>()(
 
       if (msgError) {
          console.warn("Supabase chat message insert failed", msgError);
+         alert("Database Error: " + msgError.message);
          return;
       }
 
@@ -213,8 +214,9 @@ export const useChatStore = create<ChatState>()(
          unread_admin: unreadAdmin,
          unread_customer: unreadCustomer,
       }).eq('id', sessionId);
-    } catch(e) {
+    } catch(e: any) {
        console.warn("Supabase error during send message", e);
+       alert("Error sending message: " + (e.message || String(e)));
     }
   },
 
@@ -258,8 +260,9 @@ export const useChatStore = create<ChatState>()(
       });
 
       return sessionData.id;
-    } catch(e) {
+    } catch(e: any) {
        console.warn("Error creating session in Supabase. Falling back to local state.", e);
+       alert("Error creating chat session in database: " + (e.message || String(e)));
        // Local Fallback
        const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `SESSION-${Date.now()}`;
        set(state => ({
@@ -313,24 +316,3 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({ activeSessionId: state.activeSessionId }),
   }
 ));
-
-
-// Subscribe to cross-tab changes for local fallback users
-if (typeof window !== 'undefined') {
-  const channel = new BroadcastChannel('chat_sync_channel');
-  
-  let isReceiving = false;
-  useChatStore.subscribe((state) => {
-    if (!isReceiving) {
-      channel.postMessage({ type: 'SYNC_SESSIONS', sessions: state.sessions });
-    }
-  });
-
-  channel.onmessage = (event) => {
-    if (event.data && event.data.type === 'SYNC_SESSIONS') {
-      isReceiving = true;
-      useChatStore.setState({ sessions: event.data.sessions });
-      isReceiving = false;
-    }
-  };
-}

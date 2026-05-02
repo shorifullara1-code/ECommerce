@@ -45,14 +45,17 @@ export default function LiveChat() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeSessionId || !adminUser) return;
+    if (!inputText.trim() || !activeSessionId) return;
     
     // We pass adminUser's id and name to "claim" the chat if not already claimed
+    const senderId = adminUser?.id || 'ADMIN-1';
+    const senderName = adminUser?.user_metadata?.first_name || adminUser?.email?.split('@')[0] || 'Support Agent';
+
     await sendMessage(
        activeSessionId, 
        inputText, 
-       adminUser.id, 
-       adminUser.user_metadata?.first_name || adminUser.email || 'Support Agent', 
+       senderId, 
+       senderName, 
        true
     );
     setInputText('');

@@ -228,7 +228,15 @@ export const useChatStore = create<ChatState>()(
          sessionUpdates.agent_id = senderId;
       }
 
-      await supabase.from('chat_sessions').update(sessionUpdates).eq('id', sessionId);
+      const { error: updateError } = await supabase.from('chat_sessions').update(sessionUpdates).eq('id', sessionId);
+      if (updateError) {
+         console.warn("Update session with agent_id/status failed. Retrying without them. Error: ", updateError);
+         await supabase.from('chat_sessions').update({
+            last_message_at: new Date().toISOString(),
+            unread_admin: unreadAdmin,
+            unread_customer: unreadCustomer,
+         }).eq('id', sessionId);
+      }
     } catch(e: any) {
        console.warn("Supabase error during send message", e);
        alert("Error sending message: " + (e.message || String(e)));
@@ -311,14 +319,17 @@ export const useChatStore = create<ChatState>()(
   setActiveSession: (sessionId) => set({ activeSessionId: sessionId }),
 
   endSession: async (sessionId) => {
+    set(state => ({
+      sessions: state.sessions.map(s => s.id === sessionId ? { ...s, status: 'Closed' } : s)
+    }));
     try {
       if (!sessionId.startsWith('SESSION-')) {
-        await supabase.from('chat_sessions').update({ status: 'Closed' }).eq('id', sessionId);
+        const { error } = await supabase.from('chat_sessions').update({ status: 'Closed' }).eq('id', sessionId);
+        if (error) console.warn("Could not close session in database (maybe missing column)", error);
       }
     } catch(e) {
-      console.warn("Could not close session in database", e);
+      console.warn("Exception closing session in database", e);
     }
-    // No need to remove from local state immediately unless we want to hide it
   },
 
   markAsReadAdmin: async (sessionId) => {

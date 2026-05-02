@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 
 export interface ChatMessage {
@@ -32,10 +33,12 @@ interface ChatState {
   markAsReadCustomer: (sessionId: string) => Promise<void>;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  sessions: [],
-  activeSessionId: null,
-  initialized: false,
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
+      sessions: [],
+      activeSessionId: null,
+      initialized: false,
 
   initializeSupabaseChat: async () => {
     if (get().initialized) return;
@@ -278,7 +281,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await supabase.from('chat_sessions').update({ unread_customer: 0 }).eq('id', sessionId);
     } catch(e) { /* ignore */ }
   },
-}));
+}),
+  {
+      name: 'ghorer-bazar-chat-z-storage',
+  }
+));
 
 
 // Subscribe to cross-tab changes for local fallback users

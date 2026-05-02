@@ -222,10 +222,12 @@ export const useChatStore = create<ChatState>()(
 
   createSession: async (customerId, customerName) => {
     try {
+      const dbCustomerId = customerId.startsWith('GUEST-') ? null : customerId;
+
       const { data: sessionData, error: sessionError } = await supabase
          .from('chat_sessions')
          .insert({
-            customer_id: customerId,
+            customer_id: dbCustomerId,
             customer_name: customerName,
             unread_admin: 0,
             unread_customer: 1, // Will have 1 admin msg initially

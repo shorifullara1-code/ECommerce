@@ -42,6 +42,7 @@ export const useChatStore = create<ChatState>()(
 
   initializeSupabaseChat: async () => {
     if (get().initialized) return;
+    set({ initialized: true });
 
     try {
       // 1. Fetch initial sessions
@@ -152,6 +153,12 @@ export const useChatStore = create<ChatState>()(
   },
 
   sendMessage: async (sessionId, text, senderId, senderName, isAdmin) => {
+    if (sessionId.startsWith('SESSION-')) {
+       alert("Error: Active session was created in a local fallback mode. Please refresh to start a proper live chat session.");
+       get().setActiveSession("");
+       return;
+    }
+
     // Optimistic Update / Local Fallback
     const newMsg: ChatMessage = {
       id: `MSG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -190,19 +197,21 @@ export const useChatStore = create<ChatState>()(
          });
 
       if (msgError) {
-         console.warn("Supabase chat message insert failed, using local state only.", msgError);
+         console.warn("Supabase chat message insert failed", msgError);
          return;
       }
 
       // 2. Fetch session to get current unread counts
       const session = get().sessions.find(s => s.id === sessionId);
-      if (!session) return;
 
       // 3. Update session in Supabase
+      const unreadAdmin = session ? (isAdmin ? session.unreadAdmin : session.unreadAdmin + 1) : (isAdmin ? 0 : 1);
+      const unreadCustomer = session ? (!isAdmin ? session.unreadCustomer : session.unreadCustomer + 1) : (!isAdmin ? 0 : 1);
+      
       await supabase.from('chat_sessions').update({
          last_message_at: new Date().toISOString(),
-         unread_admin: isAdmin ? session.unreadAdmin : session.unreadAdmin + 1,
-         unread_customer: !isAdmin ? session.unreadCustomer : session.unreadCustomer + 1,
+         unread_admin: unreadAdmin,
+         unread_customer: unreadCustomer,
       }).eq('id', sessionId);
     } catch(e) {
        console.warn("Supabase error during send message", e);
@@ -225,6 +234,19 @@ export const useChatStore = create<ChatState>()(
       if (sessionError) {
          throw sessionError;
       }
+
+      // Pre-add to local state so next queries don't fail immediately
+      set(state => ({
+         sessions: [{
+            id: sessionData.id,
+            customerId: customerId,
+            customerName: customerName,
+            unreadAdmin: 0,
+            unreadCustomer: 1,
+            lastMessageAt: new Date().toISOString(),
+            messages: []
+         }, ...state.sessions]
+      }));
 
       // Give it a generic admin start message
       await supabase.from('chat_messages').insert({
@@ -269,7 +291,9 @@ export const useChatStore = create<ChatState>()(
       sessions: state.sessions.map(s => s.id === sessionId ? { ...s, unreadAdmin: 0 } : s)
     }));
     try {
-      await supabase.from('chat_sessions').update({ unread_admin: 0 }).eq('id', sessionId);
+      if (!sessionId.startsWith('SESSION-')) {
+        await supabase.from('chat_sessions').update({ unread_admin: 0 }).eq('id', sessionId);
+      }
     } catch(e) { /* ignore */ }
   },
 
@@ -278,12 +302,15 @@ export const useChatStore = create<ChatState>()(
       sessions: state.sessions.map(s => s.id === sessionId ? { ...s, unreadCustomer: 0 } : s)
     }));
     try {
-      await supabase.from('chat_sessions').update({ unread_customer: 0 }).eq('id', sessionId);
+      if (!sessionId.startsWith('SESSION-')) {
+        await supabase.from('chat_sessions').update({ unread_customer: 0 }).eq('id', sessionId);
+      }
     } catch(e) { /* ignore */ }
   },
 }),
   {
-      name: 'ghorer-bazar-chat-z-storage',
+      name: 'ghorer-bazar-live-support-v2',
+      partialize: (state) => ({ activeSessionId: state.activeSessionId }),
   }
 ));
 
